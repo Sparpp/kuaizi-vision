@@ -58,6 +58,7 @@ def processGameState(my_font, screen, player_hand_states, player_game_states):
     return go
 
 def doTurnProcessing(cap, hd, bot_game_states, player_game_states, turnCounter, my_font, screen, bot_images):
+    receivingHand = 0
     # the bot attacks
     if turnCounter % 2 == 0:
         # decide a move (greedy for now)
@@ -133,7 +134,7 @@ def doTurnProcessing(cap, hd, bot_game_states, player_game_states, turnCounter, 
         frame = cv2.flip(frame, 1)
         hands, _ = hd.findHands(frame)
 
-        if hands[0]:
+        if len(hands) > 0:
             receiving = hands[0]["type"]
         if receiving == "Left":
             receivingHand = 1
@@ -145,12 +146,9 @@ def doTurnProcessing(cap, hd, bot_game_states, player_game_states, turnCounter, 
         if bot_game_states[receivingHand] >= 5:
             bot_game_states[receivingHand] = bot_game_states[receivingHand] % 5
 
-    print("attack: " + str(attackingHand) + " receive: " + str(receivingHand))
-
     return attackingHand, receivingHand
 
 def doHandAnimation(cap, hd, attack, receive, screen, hand_images, player_game_states, bot_game_states, bot_images, turnCount):
-    print(bot_game_states)
     botRH_img = hand_images[bot_game_states[1]]
     botLH_img = hand_images[bot_game_states[0]]
     botLH_img = pygame.transform.flip(botLH_img, False, True)
@@ -392,47 +390,66 @@ def main():
 
         left_count, right_count, frame = getWebcamImage(cap, hd, screen, bot_images)
 
-        player_hand_states[0] = left_count % 6
-        player_hand_states[1] = right_count % 6
+        if winner == "":
+            player_hand_states[0] = left_count % 6
+            player_hand_states[1] = right_count % 6
 
-        valid = processGameState(my_font, screen, player_hand_states, player_game_states)
+            score1 = my_font.render(f'{player_game_states[0]}', False, (255, 0, 0))        
+            screen.blit(score1, (FRAME_WIDTH // 4, (FRAME_HEIGHT // 8) * 7))
 
-        botRH_img = hand_images[bot_game_states[1]]
-        botLH_img = hand_images[bot_game_states[0]]
-        botLH_img = pygame.transform.flip(botLH_img, False, True)
-        botRH_img = pygame.transform.flip(botRH_img, True, True)
-        playerLH_img = hand_images[player_hand_states[0]]
-        playerRH_img = hand_images[player_hand_states[1]]
-        playerRH_img = pygame.transform.flip(playerRH_img, True, False)
+            score2 = my_font.render(f'{player_game_states[1]}', False, (255, 0, 0))
+            screen.blit(score2, ((FRAME_WIDTH // 4) * 3, (FRAME_HEIGHT // 8) * 7))
 
-        screen.blit(playerLH_img, (145, 375))
-        screen.blit(playerRH_img, (920, 375))
-        screen.blit(botLH_img, (145, 175))
-        screen.blit(botRH_img, (920, 175))
+            valid = processGameState(my_font, screen, player_hand_states, player_game_states)
 
-        if valid == 1:
-            attack, receive = doTurnProcessing(cap, hd, bot_game_states, player_game_states, turnCounter, my_font, screen, bot_images)
-            
-            doHandAnimation(cap, hd, attack, receive, screen, hand_images, player_game_states, bot_game_states, bot_images, turnCounter)
+            botRH_img = hand_images[bot_game_states[1]]
+            botLH_img = hand_images[bot_game_states[0]]
+            botLH_img = pygame.transform.flip(botLH_img, False, True)
+            botRH_img = pygame.transform.flip(botRH_img, True, True)
+            playerLH_img = hand_images[player_hand_states[0]]
+            playerRH_img = hand_images[player_hand_states[1]]
+            playerRH_img = pygame.transform.flip(playerRH_img, True, False)
 
-            if bot_game_states[0] == 0 and bot_game_states[1] == 0:
-                winner = "PLAYER"
-            elif player_hand_states[0] == 0 and player_game_states[1] == 0:
-                winner = "BOT"
+            screen.blit(playerLH_img, (145, 375))
+            screen.blit(playerRH_img, (920, 375))
+            screen.blit(botLH_img, (145, 175))
+            screen.blit(botRH_img, (920, 175))
 
-            turnCounter += 1
+            if valid == 1:
+                attack, receive = doTurnProcessing(cap, hd, bot_game_states, player_game_states, turnCounter, my_font, screen, bot_images)
+                
+                doHandAnimation(cap, hd, attack, receive, screen, hand_images, player_game_states, bot_game_states, bot_images, turnCounter)
 
-        cam = pygame.image.frombuffer(frame.tobytes(), frame.shape[1::-1], "BGR")
-        cam = pygame.transform.scale_by(cam, 0.4)
-        screen.blit(cam, (384, 432))
+                if bot_game_states[0] == 0 and bot_game_states[1] == 0:
+                    winner = "PLAYER"
+                elif player_hand_states[0] == 0 and player_game_states[1] == 0:
+                    winner = "BOT"
 
-        pygame.display.flip()
+                turnCounter += 1
 
-        while(winner != ""):
+            cam = pygame.image.frombuffer(frame.tobytes(), frame.shape[1::-1], "BGR")
+            cam = pygame.transform.scale_by(cam, 0.4)
+            screen.blit(cam, (384, 432))
+
+            pygame.display.flip()
+
+        if winner != "":
+            screen.fill((0, 0, 0))
             if winner == "PLAYER":
                 doBotExpressions(random.randint(0, 50), screen, bot_images, False, False, False, True)
+                text_surface = my_font.render('YOUVE WON!', False, (255, 255, 0)) 
             elif winner == "BOT":
-                doBotExpressions(random.randint(0, 50), screen, bot_images, True, False, False, False)
+                text_surface = my_font.render('YOUVE LOST!', False, (255, 0, 0)) 
+                doBotExpressions(random.randint(0, 50), screen, bot_images, False, False, True, False)
+            
+
+            text_rect = text_surface.get_rect(center=(FRAME_WIDTH/2, 400))
+            screen.blit(text_surface, text_rect)
+            cam = pygame.image.frombuffer(frame.tobytes(), frame.shape[1::-1], "BGR")
+            cam = pygame.transform.scale_by(cam, 0.4)
+            screen.blit(cam, (384, 432))
+
+            pygame.display.flip()
 
         # press esc to close
         for event in pygame.event.get():
